@@ -1266,28 +1266,37 @@ pub async fn run_transcription_pipeline<R: Runtime>(
             };
         
             // まず日本語文章を Segment に1個追加
-// ★ format_japanese_smart を使って改行済みテキストを生成
-let formatted = format_japanese_smart(&text, 12);
-let lines: Vec<&str> = formatted.split('\n').collect();
+            // ★ format_japanese_smart を使って改行済みテキストを生成
+            let formatted = format_japanese_smart(&text, 12);
+            let lines: Vec<&str> = formatted.split('\n').collect();
 
-let line_count = lines.len().max(1);
-let duration = seg_end - seg_start;
-let per = duration / line_count as f64;
+            let duration = seg_end - seg_start;
+            let total_chars: usize = lines.iter().map(|l| l.chars().count().max(1)).sum();
+            let per_char = if total_chars == 0 {
+                duration / lines.len().max(1) as f64
+            } else {
+                duration / total_chars as f64
+            };
+            let mut cursor = seg_start;
 
-// ★ 複数行 → 時間を均等割で Segment 化
-for (i, line) in lines.iter().enumerate() {
-    let start_t = seg_start + per * i as f64;
-    let end_t   = seg_start + per * (i + 1) as f64;
+            // ★ 複数行 → 文字数に応じて時間を割り振り
+            for (i, line) in lines.iter().enumerate() {
+                let chars = line.chars().count().max(1);
+                let mut end_t = cursor + per_char * chars as f64;
+                if i == lines.len() - 1 {
+                    end_t = seg_end; // 最終行で誤差を吸収してズレを抑える
+                }
 
-    let s = Segment {
-        speaker_id: None,
-        start: start_t,
-        end: end_t,
-        text: line.to_string(),
-        words: None,
-    };
-    segments_out.push(s);
-}
+                let s = Segment {
+                    speaker_id: None,
+                    start: cursor,
+                    end: end_t,
+                    text: line.to_string(),
+                    words: None,
+                };
+                segments_out.push(s);
+                cursor = end_t;
+            }
 
 
 }
