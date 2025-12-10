@@ -192,7 +192,7 @@ static LATEST_DIARIZE_PROGRESS: AtomicI32 = AtomicI32::new(0);
 // Utility function for rounding to n decimal places
 fn round_to_places(val: f64, places: u32) -> f64 {
     let factor = 10f64.powi(places as i32);
-    (val * factor).trunc() / factor
+    (val * factor).round() / factor
 }
 
 // --- Frontend Options Struct ---
@@ -1264,20 +1264,6 @@ pub async fn run_transcription_pipeline<R: Runtime>(
                 );
                 (s, e, Some(word_timestamps))
             };
-        
-            // prevent slight overlaps with previous segment
-            if let Some(last) = segments_out.last_mut() {
-                if last.end > seg_start {
-                    last.end = seg_start;
-                }
-                if let Some(words) = &mut last.words {
-                    if let Some(last_word) = words.last_mut() {
-                        if last_word.end > last.end {
-                            last_word.end = last.end;
-                        }
-                    }
-                }
-            }
         
             // まず日本語文章を Segment に1個追加
 // ★ format_japanese_smart を使って改行済みテキストを生成
